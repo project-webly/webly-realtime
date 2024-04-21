@@ -104,3 +104,60 @@ export function renameProject(id: string, name: string) {
 export function deleteProject(id: string) {
   return call('DELETE', API_PATH + `/api/v1/projects/${id}`, null, jwtHeader());
 }
+
+export type FolderDto = {
+  id: number;
+  name: string;
+  parentId: number;
+};
+
+export function getFolders(projectId: string, parentId?: string): Promise<FolderDto[]> {
+  return callJson(
+    'GET',
+    API_PATH + `/api/v1/projects/${projectId}/folders${parentId ? '?parentId=' + parentId : ''}`,
+    null,
+    jwtHeader(),
+  );
+}
+
+type FolderDetailDto = {
+  id: number;
+  name: string;
+  parentId: number;
+  childFolders: FolderDto[];
+  childLinks: LinkDto[];
+};
+
+export function getFoldersDetail(projectId: string, folderId): Promise<FolderDetailDto> {
+  return callJson(
+    'GET',
+    API_PATH + `/api/v1/projects/${projectId}/folders/${folderId}`,
+    null,
+    jwtHeader(),
+  );
+}
+
+export function addFolder(projectId: string, name: string, parentId?: string) {
+  return callJson(
+    'POST',
+    API_PATH + `/api/v1/projects/${projectId}/folders`,
+    { name: name, parentId: parentId },
+    jwtHeader(),
+  );
+}
+
+export function addLink(projectId: string, parentId: string, name: string) {
+  return callJson(
+    'POST',
+    API_PATH + `/api/v1/projects/${projectId}/folders/${parentId}/links`,
+    { name: name, url: '' },
+    jwtHeader(),
+  );
+}
+
+export type LinkDto = {
+  id: number;
+  name: string;
+  url: string;
+  folderId: number;
+};
