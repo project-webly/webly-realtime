@@ -1,16 +1,22 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Tree from 'rc-tree';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EventDataNode, Key } from 'rc-tree/es/interface';
 import { addFolder, addLink, FolderDto, getFolders, getFoldersDetail } from '@/lib/webly/api';
+import { editor } from 'monaco-editor';
+import { Editor, Monaco } from '@monaco-editor/react';
+import * as Y from 'yjs';
+import { createYjsProvider } from '@y-sweet/client';
+import { MonacoBinding } from 'y-monaco';
 
 export default function Page() {
   const params = useParams<{ projectId: string }>();
   const [expandedKeys, setExpandedKeys] = useState([]); // 열려 있는 아이템의 키 목록
   const [treeData, setTreeData] = useState([]); // 트리 데이터
   const [selectedKeys, setSelectedKeys] = useState([]);
+  const [docId, setDocId] = useState<string>();
   useEffect(() => {
     (async () => {
       const folders = await getFolders(params.projectId);
@@ -46,6 +52,9 @@ export default function Page() {
     },
   ) => {
     setSelectedKeys(selectedKeys);
+    if (selectedKeys.length === 1) {
+      setDocId(selectedKeys[0].toString());
+    }
   };
   const handleExpand = async (
     expandedKeys: Key[],
@@ -120,7 +129,55 @@ export default function Page() {
           />
         </div>
       </div>
-      <div>editor </div>
+      <div>{docId && <EditorPage docId={docId} />}</div>
     </div>
+  );
+}
+
+function EditorPage({ docId }: { docId: string }) {
+  const editorRef = useRef<editor.IStandaloneCodeEditor>();
+  const [clientToken, setClientToken] = useState();
+  const bindingRef = useRef<MonacoBinding | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const url = new URL('http://localhost:3000/api/token');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          jwt: 'jwt',
+          docId: docId,
+        }),
+      });
+      setClientToken(await res.json());
+    })();
+  }, [docId]);
+
+  useEffect(() => {
+    bindingRef.current?.destroy();
+
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const doc = new Y.Doc();
+    const provider = createYjsProvider(doc, clientToken, { disableBc: true });
+    const type = doc.getText('manaco');
+    const binding = new MonacoBinding(
+      type,
+      editor.getModel()!,
+      new Set([editor]),
+      provider.awareness,
+    );
+    bindingRef.current = binding;
+    console.log(provider.awareness);
+  }, [clientToken]);
+  async function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {
+    editorRef.current = editor;
+  }
+  return (
+    <Editor theme="vs-dark" className="w-screen h-screen" onMount={handleEditorDidMount}></Editor>
   );
 }
