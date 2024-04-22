@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import Tree from 'rc-tree';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EventDataNode, Key } from 'rc-tree/es/interface';
 import { addFolder, addLink, FolderDto, getFolders, getFoldersDetail } from '@/lib/webly/api';
 import { editor } from 'monaco-editor';
@@ -10,6 +10,8 @@ import { Editor, Monaco } from '@monaco-editor/react';
 import * as Y from 'yjs';
 import { createYjsProvider } from '@y-sweet/client';
 import { MonacoBinding } from 'y-monaco';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function Page() {
   const params = useParams<{ projectId: string }>();
@@ -17,6 +19,7 @@ export default function Page() {
   const [treeData, setTreeData] = useState([]); // 트리 데이터
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [docId, setDocId] = useState<string>();
+  const [content, setContent] = useState('');
   useEffect(() => {
     (async () => {
       const folders = await getFolders(params.projectId);
@@ -129,12 +132,27 @@ export default function Page() {
           />
         </div>
       </div>
-      <div>{docId && <EditorPage docId={docId} />}</div>
+      <div>
+        {docId && (
+          <div className="w-1/2">
+            <EditorPage docId={docId} onValueChange={(c) => setContent(c)} />
+          </div>
+        )}
+        <div className="w-1/2">
+          <MarkdownViewer content={content} />
+        </div>
+      </div>
     </div>
   );
 }
 
-function EditorPage({ docId }: { docId: string }) {
+function EditorPage({
+  docId,
+  onValueChange,
+}: {
+  docId: string;
+  onValueChange?: (arg: string) => void;
+}) {
   const editorRef = useRef<editor.IStandaloneCodeEditor>();
   const [clientToken, setClientToken] = useState();
   const bindingRef = useRef<MonacoBinding | null>(null);
@@ -173,11 +191,25 @@ function EditorPage({ docId }: { docId: string }) {
     );
     bindingRef.current = binding;
     console.log(provider.awareness);
-  }, [clientToken]);
+
+    editor.getModel()?.onDidChangeContent((e) => {
+      console.log(editor.getValue());
+      onValueChange?.(editor.getValue());
+    });
+  }, [clientToken, onValueChange]);
   async function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
   }
   return (
-    <Editor theme="vs-dark" className="w-screen h-screen" onMount={handleEditorDidMount}></Editor>
+    <Editor
+      theme="vs-dark"
+      className="w-screen h-screen"
+      language="markdown"
+      onMount={handleEditorDidMount}
+    ></Editor>
   );
+}
+
+function MarkdownViewer({ content }: { content: string }) {
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
 }

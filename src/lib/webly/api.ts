@@ -128,7 +128,7 @@ type FolderDetailDto = {
   childLinks: LinkDto[];
 };
 
-export function getFoldersDetail(projectId: string, folderId): Promise<FolderDetailDto> {
+export function getFoldersDetail(projectId: string, folderId: string): Promise<FolderDetailDto> {
   return callJson(
     'GET',
     API_PATH + `/api/v1/projects/${projectId}/folders/${folderId}`,
@@ -161,3 +161,30 @@ export type LinkDto = {
   url: string;
   folderId: number;
 };
+
+export type ProjectAccountDto = {
+  id: number;
+  accountName: string;
+};
+
+export function getAccounts(projectId: string): Promise<ProjectAccountDto[]> {
+  return callJson('GET', API_PATH + `/api/v1/projects/${projectId}/accounts`, null, jwtHeader());
+}
+
+export function addAccount(projectId: string, email: string) {
+  return callJson(
+    'POST',
+    API_PATH + `/api/v1/projects/${projectId}/accounts`,
+    { email, isAdmin: true },
+    jwtHeader(),
+  );
+}
+
+export function deleteAccount(projectId: string, accountId: string) {
+  return callJson(
+    'DELETE',
+    API_PATH + `/api/v1/projects/${projectId}/accounts/${accountId}`,
+    null,
+    jwtHeader(),
+  );
+}

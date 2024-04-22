@@ -22,7 +22,7 @@ function Form() {
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const res = await createProject(name);
-    router.push(`/project/${res}`);
+    router.push(`/project`);
   };
   return (
     <form action="#" method="POST" onSubmit={(e) => onSubmit(e)}>
