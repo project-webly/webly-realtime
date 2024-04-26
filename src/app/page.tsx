@@ -8,7 +8,9 @@ export function Header() {
   return (
     <div className="relative flex flex-wrap items-center justify-between w-full bg-white group py-7 shrink-0">
       <div>
-        <img className="h-12" src="/logo.png" />
+        <a href="/">
+          <img className="h-12" src="/logo.png" alt="logo" />
+        </a>
       </div>
       <div className="items-center justify-between hidden gap-12 text-black md:flex">
         <a

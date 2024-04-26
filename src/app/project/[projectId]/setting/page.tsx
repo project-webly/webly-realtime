@@ -10,6 +10,7 @@ import {
   deleteAccount,
   deleteProject,
   getAccounts,
+  getProjectById,
   ProjectAccountDto,
   ProjectDto,
   renameProject,
@@ -50,10 +51,10 @@ function Form() {
   useEffect(() => {
     (async () => {
       if (!params) return;
-      const accounts = await getAccounts(params.projectId);
-      setAccounts(accounts);
+      getAccounts(params.projectId).then((accounts) => setAccounts(accounts));
+      getProjectById(params.projectId).then((project) => setName(project.name));
     })();
-  }, [params, setAccounts]);
+  }, [params, setAccounts, setName]);
   return (
     <>
       <div>
@@ -88,7 +89,7 @@ function Form() {
       />
       <button
         onClick={() => handleAddMember()}
-        className="bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md py-2 px-4 w-full"
+        className="mt-2 mb-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md py-2 px-4 w-full"
       >
         Add Member
       </button>

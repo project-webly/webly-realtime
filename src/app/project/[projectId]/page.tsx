@@ -3,8 +3,16 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import Tree from 'rc-tree';
 import React, { useEffect, useRef, useState } from 'react';
-import { EventDataNode, Key } from 'rc-tree/es/interface';
-import { addFolder, addLink, FolderDto, getFolders, getFoldersDetail } from '@/lib/webly/api';
+import { DataNode, EventDataNode, Key } from 'rc-tree/es/interface';
+import {
+  addFolder,
+  addLink,
+  deleteFolder,
+  deleteLink,
+  FolderDto,
+  getFolders,
+  getFoldersDetail,
+} from '@/lib/webly/api';
 import { editor } from 'monaco-editor';
 import { Editor, Monaco } from '@monaco-editor/react';
 import * as Y from 'yjs';
@@ -13,19 +21,47 @@ import { MonacoBinding } from 'y-monaco';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+function folderIdToTreeKey(id: string | number): string {
+  return 'folder_' + id.toString();
+}
+
+function fileIdToTreeKey(id: string | number): string {
+  return 'file_' + id.toString();
+}
+
+function isFolder(treeKey: string) {
+  return treeKey.startsWith('folder_');
+}
+
+function isFile(treeKey: string) {
+  return treeKey.startsWith('file_');
+}
+
+function parseKey(treeKey: Key) {
+  return {
+    isFolder: isFolder(treeKey.toString()),
+    isFile: isFile(treeKey.toString()),
+    treeKey: treeKey.toString(),
+    apiId: treeKey.toString().substring(treeKey.toString().split('_')[0].length + 1),
+  };
+}
+
 export default function Page() {
   const params = useParams<{ projectId: string }>();
-  const [expandedKeys, setExpandedKeys] = useState([]); // 열려 있는 아이템의 키 목록
-  const [treeData, setTreeData] = useState([]); // 트리 데이터
-  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [expandedKeys, setExpandedKeys] = useState<Key[]>([]); // 열려 있는 아이템의 키 목록
+  const [treeData, setTreeData] = useState<DataNode[]>([]); // 트리 데이터
+  const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [docId, setDocId] = useState<string>();
   const [content, setContent] = useState('');
+
   useEffect(() => {
     (async () => {
+      if (params == null) return;
+
       const folders = await getFolders(params.projectId);
       setTreeData(
         folders.map((x) => ({
-          key: x.id.toString(),
+          key: folderIdToTreeKey(x.id),
           title: x.name,
           children: [{ key: 'fake_' + x.id }],
         })),
@@ -34,12 +70,14 @@ export default function Page() {
   }, []);
 
   const addLinkHandle = async () => {
+    if (params == null) return;
+
     const linkName = prompt('link name');
     if (!linkName) return;
 
     if (selectedKeys.length > 0) {
-      const parentId = selectedKeys[0];
-      await addLink(params.projectId, parentId, linkName);
+      const parentId = parseKey(selectedKeys[0] as string);
+      await addLink(params.projectId, parentId.apiId, linkName);
     } else {
       alert('no folder selected');
     }
@@ -49,8 +87,8 @@ export default function Page() {
     info: {
       event: 'select';
       selected: boolean;
-      node: EventDataNode<TreeDataType>;
-      selectedNodes: TreeDataType[];
+      node: EventDataNode<DataNode>;
+      selectedNodes: DataNode[];
       nativeEvent: MouseEvent;
     },
   ) => {
@@ -62,36 +100,37 @@ export default function Page() {
   const handleExpand = async (
     expandedKeys: Key[],
     info: {
-      node: EventDataNode<TreeDataType>;
+      node: EventDataNode<DataNode>;
       expanded: boolean;
       nativeEvent: MouseEvent;
     },
   ) => {
-    const key = info.node.key.toString();
+    const key = parseKey(info.node.key.toString());
+    if (params == null) return;
     if (info.expanded) {
-      const folder = await getFoldersDetail(params.projectId, key);
+      const folder = await getFoldersDetail(params.projectId, key.apiId);
       const children = folder.childFolders
         .map((x) => ({
-          key: x.id,
+          key: folderIdToTreeKey(x.id),
           title: x.name,
           children: [{ key: 'fake_' + x.id }],
         }))
         .concat(
           folder.childLinks.map((x) => ({
-            key: x.id,
+            key: fileIdToTreeKey(x.id),
             title: x.name,
             children: [],
           })),
         );
 
-      setTreeData(updateTreeData(treeData, key, children));
-      setExpandedKeys([...expandedKeys, key]);
+      setTreeData(updateTreeData(treeData, key.treeKey, children));
+      setExpandedKeys([...expandedKeys, key.treeKey]);
     } else {
       setExpandedKeys(expandedKeys.filter((x) => x !== info.node.key));
     }
   };
 
-  const updateTreeData = (tree: any, key: string, children: any[]): any => {
+  const updateTreeData = (tree: DataNode[], key: string, children: any[]): any => {
     return tree.map((node) => {
       console.log({ my: node.key, key });
       if (node.key === key) {
@@ -104,16 +143,39 @@ export default function Page() {
   };
 
   const createFolder = async () => {
+    if (params == null) return;
     const folderName = prompt('folder name');
     if (!folderName) return;
 
     if (selectedKeys.length > 0) {
-      const parentId = selectedKeys[0];
-      await addFolder(params.projectId, folderName, parentId);
+      const parentKey = parseKey(selectedKeys[0] as string);
+      await addFolder(params.projectId, folderName, parentKey.apiId);
     } else {
       await addFolder(params.projectId, folderName);
     }
   };
+
+  const handleDelete = async () => {
+    if (params == null) return;
+    if (selectedKeys.length !== 0) {
+      alert('선택된 항목이 없습니다');
+      return;
+    }
+
+    const key = parseKey(selectedKeys[0] as string);
+    if (key.isFolder) {
+      await deleteFolder(params.projectId, key.apiId);
+    } else {
+      const folderId = treeData
+        .flatMap((x) => [x, ...(x.children as DataNode[])])
+        .find((x) => x.children?.filter((child) => child.key === key.treeKey));
+      if (folderId) {
+        await deleteLink(params.projectId, parseKey(folderId.key).apiId, key.apiId);
+      }
+    }
+  };
+
+  const handleRename = async () => {};
 
   return (
     <div>
@@ -122,8 +184,8 @@ export default function Page() {
         <div>
           <button onClick={() => createFolder()}>Add Folder</button>
           <button onClick={() => addLinkHandle()}>Add Link</button>
-          <button>Delete</button>
-          <button>Rename</button>
+          <button onClick={() => handleDelete()}>Delete</button>
+          <button onClick={() => handleRename()}>Rename</button>
           <Tree
             treeData={treeData}
             expandedKeys={expandedKeys}
@@ -154,7 +216,7 @@ function EditorPage({
   onValueChange?: (arg: string) => void;
 }) {
   const editorRef = useRef<editor.IStandaloneCodeEditor>();
-  const [clientToken, setClientToken] = useState();
+  const [clientToken, setClientToken] = useState<any>();
   const bindingRef = useRef<MonacoBinding | null>(null);
 
   useEffect(() => {
@@ -175,6 +237,7 @@ function EditorPage({
   }, [docId]);
 
   useEffect(() => {
+    console.log('why?');
     bindingRef.current?.destroy();
 
     const editor = editorRef.current;
@@ -196,7 +259,7 @@ function EditorPage({
       console.log(editor.getValue());
       onValueChange?.(editor.getValue());
     });
-  }, [clientToken, onValueChange]);
+  }, [clientToken]);
   async function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
   }

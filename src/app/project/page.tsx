@@ -15,20 +15,22 @@ export default function Project() {
   return (
     <HomeLayout>
       <Header />
-      <a
-        href="/project/new"
-        className="text-blue-500 transition-colors duration-200 hover:text-indigo-500 focus:outline-none"
-      >
-        Add Project
-      </a>
-      <Table projects={projects}></Table>
+      <section className="container px-4 mx-auto">
+        <a
+          href="/project/new"
+          className="mb-2 flex items-center px-4 py-2 text-sm font-bold rounded-xl bg-purple-100 text-purple-blue-600 hover:bg-purple-600 hover:text-white transition duration-300"
+        >
+          Add Project
+        </a>
+        <Table projects={projects}></Table>
+      </section>
     </HomeLayout>
   );
 }
 
 function Table({ projects }: { projects: ProjectDto[] }) {
   return (
-    <section className="container px-4 mx-auto">
+    <>
       <div className="flex flex-col">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
@@ -185,6 +187,6 @@ function Table({ projects }: { projects: ProjectDto[] }) {
           </svg>
         </a>
       </div>
-    </section>
+    </>
   );
 }

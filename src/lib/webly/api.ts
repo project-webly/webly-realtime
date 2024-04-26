@@ -155,6 +155,24 @@ export function addLink(projectId: string, parentId: string, name: string) {
   );
 }
 
+export function deleteFolder(projectId: string, folderId: string) {
+  return call(
+    'DELETE',
+    API_PATH + `/api/v1/projects/${projectId}/folders/${folderId}`,
+    { name: name, url: '' },
+    jwtHeader(),
+  );
+}
+
+export function deleteLink(projectId: string, folderId: string, linkId: string) {
+  return call(
+    'DELETE',
+    API_PATH + `/api/v1/projects/${projectId}/folders/${folderId}/links/${linkId}`,
+    { name: name, url: '' },
+    jwtHeader(),
+  );
+}
+
 export type LinkDto = {
   id: number;
   name: string;
